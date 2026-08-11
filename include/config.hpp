@@ -1,5 +1,4 @@
 #pragma once
-
 #include <mpi.h>
 #include <string>
 
@@ -42,6 +41,21 @@ enum class FieldOutputVars {
     PhiP
 };
 
+// Optional balancing of individual seed modes before the global initial-data
+// normalization is applied.
+enum class IDBalanceKind {
+    None,
+    PaperL,
+    ModeEnergy
+};
+
+// Optional normalization of the complete initial-data shape.
+enum class IDNormalizeKind {
+    None,
+    Quadratic,
+    FullCubic
+};
+
 struct Params {
     // Geometry and domain.
     double rh = 1.0;
@@ -57,7 +71,6 @@ struct Params {
     double dt = 0.005;
     double t_final = 50.0;
     int output_every = 100;
-
     // Field output is tied to diagnostic outputs: field_every=1 writes at every
     // diagnostic, field_every=20 writes at every twentieth diagnostic, and 0
     // disables all field dumps regardless of field_mode.
@@ -89,6 +102,22 @@ struct Params {
     double random_phase_seed = 1.2345;
     bool random_mode_centered = true;
 
+    // Initial-data comparison controls.
+    //
+    // id_balance=scale_l reproduces the approximate 1/ell weighting used in
+    // Appendix A of arXiv:2411.17445.  id_balance=mode_energy is the preferred
+    // black-string generalization: each seed mode is multiplied by the inverse
+    // square root of its unit-amplitude quadratic energy, including both the
+    // angular and Kaluza-Klein contributions.
+    std::string id_balance_name = "none";
+    IDBalanceKind id_balance = IDBalanceKind::None;
+
+    // id_normalize fixes the energy of the complete reference shape at amp=1.
+    // The user amplitude amp is then applied after that normalization.
+    std::string id_normalize_name = "none";
+    IDNormalizeKind id_normalize = IDNormalizeKind::None;
+    double id_target_energy = 1.0;
+
     // Sponge layers and artificial dissipation.
     double sponge_inner_width = 4.0;
     double sponge_outer_width = 8.0;
@@ -107,6 +136,11 @@ struct Params {
     double outer_probe_x = 34.0;
     std::string modal_z_basis = "cos_sin"; // cosine or cos_sin
     bool modal_include_sine = true;
+
+    // A separate control-volume energy ledger is written to
+    // energy_balance.csv.  This keeps the existing diagnostics.csv convention
+    // unchanged while providing signed horizon/outer flux accounting.
+    bool energy_balance = true;
 
     // Output.
     std::string outdir = "run_nlin_wave";
@@ -127,3 +161,5 @@ const char* to_string(InitKind v);
 const char* to_string(RadialProfileKind v);
 const char* to_string(FieldOutputMode v);
 const char* to_string(FieldOutputVars v);
+const char* to_string(IDBalanceKind v);
+const char* to_string(IDNormalizeKind v);

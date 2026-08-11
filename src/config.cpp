@@ -2,10 +2,8 @@
 #include "utils.hpp"
 
 #include <cmath>
-#include <cstdlib>
 #include <iomanip>
 #include <iostream>
-#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -34,7 +32,9 @@ QKind parse_q_kind(const std::string& s) {
     if (s == "spatial") return QKind::Spatial;
     if (s == "null_x") return QKind::NullX;
     if (s == "badtime") return QKind::BadTime;
-    throw std::runtime_error("unknown q-kind: " + s + " (allowed: none, metric, spatial, null_x, badtime)");
+    throw std::runtime_error(
+        "unknown q-kind: " + s +
+        " (allowed: none, metric, spatial, null_x, badtime)");
 }
 
 InitKind parse_init_kind(const std::string& s) {
@@ -45,14 +45,18 @@ InitKind parse_init_kind(const std::string& s) {
     if (s == "s2") return InitKind::S2Symmetric;
     if (s == "offwell") return InitKind::OffWell;
     if (s == "gaussian") return InitKind::Gaussian;
-    throw std::runtime_error("unknown init: " + s + " (allowed: eq44, two_mode, random_trapped, zindep, s2, offwell, gaussian)");
+    throw std::runtime_error(
+        "unknown init: " + s +
+        " (allowed: eq44, two_mode, random_trapped, zindep, s2, offwell, gaussian)");
 }
 
 RadialProfileKind parse_radial_profile(const std::string& s) {
     if (s == "bump8") return RadialProfileKind::Bump8;
     if (s == "gaussian") return RadialProfileKind::Gaussian;
     if (s == "cinf") return RadialProfileKind::CInf;
-    throw std::runtime_error("unknown radial profile: " + s + " (allowed: bump8, gaussian, cinf)");
+    throw std::runtime_error(
+        "unknown radial profile: " + s +
+        " (allowed: bump8, gaussian, cinf)");
 }
 
 FieldOutputMode parse_field_mode(const std::string& s) {
@@ -61,13 +65,34 @@ FieldOutputMode parse_field_mode(const std::string& s) {
     if (s == "full_csv") return FieldOutputMode::FullCSV;
     if (s == "full_binary") return FieldOutputMode::FullBinary;
     if (s == "slices_full_binary") return FieldOutputMode::SlicesFullBinary;
-    throw std::runtime_error("unknown field mode: " + s + " (allowed: none, slices, full_csv, full_binary, slices_full_binary)");
+    throw std::runtime_error(
+        "unknown field mode: " + s +
+        " (allowed: none, slices, full_csv, full_binary, slices_full_binary)");
 }
 
 FieldOutputVars parse_field_vars(const std::string& s) {
     if (s == "phi") return FieldOutputVars::Phi;
     if (s == "phiP" || s == "phip" || s == "both") return FieldOutputVars::PhiP;
-    throw std::runtime_error("unknown field vars: " + s + " (allowed: phi, phiP)");
+    throw std::runtime_error(
+        "unknown field vars: " + s + " (allowed: phi, phiP)");
+}
+
+IDBalanceKind parse_id_balance(const std::string& s) {
+    if (s == "none") return IDBalanceKind::None;
+    if (s == "scale_l") return IDBalanceKind::PaperL;
+    if (s == "mode_energy") return IDBalanceKind::ModeEnergy;
+    throw std::runtime_error(
+        "unknown id-balance: " + s +
+        " (allowed: none, scale_l, mode_energy)");
+}
+
+IDNormalizeKind parse_id_normalize(const std::string& s) {
+    if (s == "none") return IDNormalizeKind::None;
+    if (s == "quadratic") return IDNormalizeKind::Quadratic;
+    if (s == "full_cubic") return IDNormalizeKind::FullCubic;
+    throw std::runtime_error(
+        "unknown id-normalize: " + s +
+        " (allowed: none, quadratic, full_cubic)");
 }
 
 void apply_field_output_arg(Params& p, const std::string& s) {
@@ -95,7 +120,8 @@ void apply_full_output_format_arg(Params& p, const std::string& s) {
         if (p.field_mode_name == "full_binary") p.field_mode_name = "full_csv";
         else if (p.field_mode_name == "slices_full_binary") p.field_mode_name = "full_csv";
     } else {
-        throw std::runtime_error("unknown full-output-format: " + s + " (allowed: binary, csv)");
+        throw std::runtime_error(
+            "unknown full-output-format: " + s + " (allowed: binary, csv)");
     }
 }
 
@@ -105,46 +131,77 @@ void finalize_and_validate(Params& p) {
     p.radial_profile = parse_radial_profile(p.radial_profile_name);
     p.field_mode = parse_field_mode(p.field_mode_name);
     p.field_vars = parse_field_vars(p.field_vars_name);
+    p.id_balance = parse_id_balance(p.id_balance_name);
+    p.id_normalize = parse_id_normalize(p.id_normalize_name);
 
     if (p.modal_z_basis == "cosine") {
         p.modal_include_sine = false;
     } else if (p.modal_z_basis == "cos_sin") {
         p.modal_include_sine = true;
     } else {
-        throw std::runtime_error("unknown modal-z-basis: " + p.modal_z_basis + " (allowed: cosine, cos_sin)");
+        throw std::runtime_error(
+            "unknown modal-z-basis: " + p.modal_z_basis +
+            " (allowed: cosine, cos_sin)");
     }
 
     auto finite = [](double x) { return std::isfinite(x); };
+
     if (p.nx < 16 || p.nth < 8 || p.nz < 8) {
         throw std::runtime_error("grid too small: require nx>=16, nth>=8, nz>=8");
     }
     if (p.nghost < 3) {
-        throw std::runtime_error("nghost must be at least 3 for fourth-order stencils and KO6");
+        throw std::runtime_error(
+            "nghost must be at least 3 for fourth-order stencils and KO6");
     }
-    if (!finite(p.rh) || p.rh <= 0.0) throw std::runtime_error("rh must be positive and finite");
-    if (!finite(p.Lz) || p.Lz <= 0.0) throw std::runtime_error("Lz must be positive and finite");
+    if (!finite(p.rh) || p.rh <= 0.0) {
+        throw std::runtime_error("rh must be positive and finite");
+    }
+    if (!finite(p.Lz) || p.Lz <= 0.0) {
+        throw std::runtime_error("Lz must be positive and finite");
+    }
     if (!finite(p.x_min) || !finite(p.x_max) || p.x_min >= p.x_max) {
-        throw std::runtime_error("x_min and x_max must be finite with x_min < x_max");
+        throw std::runtime_error(
+            "x_min and x_max must be finite with x_min < x_max");
     }
-    if (!finite(p.dt) || p.dt <= 0.0) throw std::runtime_error("dt must be positive and finite");
-    if (!finite(p.t_final) || p.t_final < 0.0) throw std::runtime_error("t_final must be nonnegative and finite");
-    if (p.output_every <= 0) throw std::runtime_error("output_every must be positive");
-    if (p.field_every < 0) throw std::runtime_error("field_every must be nonnegative");
-    if (!finite(p.width) || p.width <= 0.0) throw std::runtime_error("width must be positive and finite");
-    if (!finite(p.r_center) || p.r_center <= p.rh) throw std::runtime_error("r_center must be finite and greater than rh");
+    if (!finite(p.dt) || p.dt <= 0.0) {
+        throw std::runtime_error("dt must be positive and finite");
+    }
+    if (!finite(p.t_final) || p.t_final < 0.0) {
+        throw std::runtime_error("t_final must be nonnegative and finite");
+    }
+    if (p.output_every <= 0) {
+        throw std::runtime_error("output_every must be positive");
+    }
+    if (p.field_every < 0) {
+        throw std::runtime_error("field_every must be nonnegative");
+    }
+    if (!finite(p.width) || p.width <= 0.0) {
+        throw std::runtime_error("width must be positive and finite");
+    }
+    if (!finite(p.r_center) || p.r_center <= p.rh) {
+        throw std::runtime_error("r_center must be finite and greater than rh");
+    }
     if (!finite(p.offwell_r_center) || p.offwell_r_center <= p.rh) {
-        throw std::runtime_error("offwell_r_center must be finite and greater than rh");
+        throw std::runtime_error(
+            "offwell_r_center must be finite and greater than rh");
     }
-    if (p.ell0 < 0 || p.n0 < 0) throw std::runtime_error("ell0 and n0 must be nonnegative");
-    if (p.lmax < 0 || p.nmax < 0) throw std::runtime_error("lmax and nmax must be nonnegative");
+    if (p.ell0 < 0 || p.n0 < 0) {
+        throw std::runtime_error("ell0 and n0 must be nonnegative");
+    }
+    if (p.lmax < 0 || p.nmax < 0) {
+        throw std::runtime_error("lmax and nmax must be nonnegative");
+    }
     if (p.lmax + 1 > p.nth) {
-        throw std::runtime_error("lmax is too large for nth; require lmax+1 <= nth for angular projection");
+        throw std::runtime_error(
+            "lmax is too large for nth; require lmax+1 <= nth for angular projection");
     }
     if (p.nmax >= p.nz / 2) {
-        throw std::runtime_error("nmax must be below the z-grid Nyquist frequency; require nmax < nz/2");
+        throw std::runtime_error(
+            "nmax must be below the z-grid Nyquist frequency; require nmax < nz/2");
     }
     if (p.n0 >= p.nz / 2) {
-        throw std::runtime_error("n0 must be below the z-grid Nyquist frequency; require n0 < nz/2");
+        throw std::runtime_error(
+            "n0 must be below the z-grid Nyquist frequency; require n0 < nz/2");
     }
     if (!finite(p.sponge_inner_width) || !finite(p.sponge_outer_width) ||
         !finite(p.sponge_inner_strength) || !finite(p.sponge_outer_strength)) {
@@ -154,9 +211,12 @@ void finalize_and_validate(Params& p) {
         p.sponge_inner_strength < 0.0 || p.sponge_outer_strength < 0.0) {
         throw std::runtime_error("sponge widths and strengths must be nonnegative");
     }
-    if (!finite(p.ko_eps) || p.ko_eps < 0.0) throw std::runtime_error("ko_eps must be nonnegative and finite");
+    if (!finite(p.ko_eps) || p.ko_eps < 0.0) {
+        throw std::runtime_error("ko_eps must be nonnegative and finite");
+    }
     if (!finite(p.trap_dx_half_width) || p.trap_dx_half_width <= 0.0) {
-        throw std::runtime_error("trap_dx_half_width must be positive and finite");
+        throw std::runtime_error(
+            "trap_dx_half_width must be positive and finite");
     }
     if (!finite(p.horizon_probe_x) || !finite(p.outer_probe_x)) {
         throw std::runtime_error("probe locations must be finite");
@@ -165,9 +225,36 @@ void finalize_and_validate(Params& p) {
         p.outer_probe_x < p.x_min || p.outer_probe_x > p.x_max) {
         throw std::runtime_error("probe locations must lie inside the x domain");
     }
+    if (!(p.horizon_probe_x < p.outer_probe_x)) {
+        throw std::runtime_error(
+            "require horizon_probe_x < outer_probe_x for the energy control volume");
+    }
+
+    const double dx = (p.x_max - p.x_min) / static_cast<double>(p.nx - 1);
+    if (p.horizon_probe_x < p.x_min + 2.0 * dx ||
+        p.outer_probe_x > p.x_max - 2.0 * dx) {
+        throw std::runtime_error(
+            "energy-flux probes must be at least two x grid spacings inside the domain");
+    }
+
     if (p.total_high_ell_cut < 0 || p.total_high_n_cut < 0) {
         throw std::runtime_error("high-mode cuts must be nonnegative");
     }
+    if (!finite(p.id_target_energy) || p.id_target_energy <= 0.0) {
+        throw std::runtime_error("id_target_energy must be positive and finite");
+    }
+    const bool scale_l_uses_ell0 =
+        p.init_kind == InitKind::Eq44 ||
+        p.init_kind == InitKind::ZIndependent ||
+        p.init_kind == InitKind::OffWell ||
+        p.init_kind == InitKind::Gaussian;
+    if (p.id_balance == IDBalanceKind::PaperL &&
+        (p.init_kind == InitKind::S2Symmetric ||
+         (scale_l_uses_ell0 && p.ell0 == 0))) {
+        throw std::runtime_error(
+            "id-balance scale_l is undefined for ell=0; use mode_energy or none");
+    }
+
     if (p.field_every == 0) {
         p.field_mode_name = "none";
         p.field_mode = FieldOutputMode::None;
@@ -228,6 +315,24 @@ const char* to_string(FieldOutputVars v) {
     return "unknown";
 }
 
+const char* to_string(IDBalanceKind v) {
+    switch (v) {
+        case IDBalanceKind::None: return "none";
+        case IDBalanceKind::PaperL: return "scale_l";
+        case IDBalanceKind::ModeEnergy: return "mode_energy";
+    }
+    return "unknown";
+}
+
+const char* to_string(IDNormalizeKind v) {
+    switch (v) {
+        case IDNormalizeKind::None: return "none";
+        case IDNormalizeKind::Quadratic: return "quadratic";
+        case IDNormalizeKind::FullCubic: return "full_cubic";
+    }
+    return "unknown";
+}
+
 void print_usage(int rank) {
     if (rank != 0) return;
     std::cout << R"USAGE(
@@ -235,55 +340,56 @@ nlin_wave_bs: nonlinear scalar wave on a fixed 5D Schwarzschild black string
 
 Core examples:
   mpirun -np 4 ./nlin_wave_bs --outdir run_linear --mu 0 --lambda 0 --q-kind none
-  mpirun -np 4 ./nlin_wave_bs --outdir run_eq44  --mu 1 --lambda 0 --init eq44
-  mpirun -np 4 ./nlin_wave_bs --outdir run_full  --mu 1 --init eq44 --field-mode full_binary --field-vars phi --field-every 1
+  mpirun -np 4 ./nlin_wave_bs --outdir run_eq44 --mu 1 --lambda 0 --init eq44
+  mpirun -np 4 ./nlin_wave_bs --outdir run_full --mu 1 --init eq44 --field-mode full_binary --field-vars phi --field-every 1
 
 Geometry/grid/time:
-  --rh R --Lz L --x-min X --x-max X
-  --nx N --nth N --nz N --dt DT --t-final T
-  --output-every N
+  --rh R --Lz L --x-min X --x-max X --nx N --nth N --nz N
+  --dt DT --t-final T --output-every N
 
 Model:
   --mu MU --lambda LAM --alpha2 A
-  --q-kind KIND       none, metric, spatial, null_x, badtime
+  --q-kind KIND              none, metric, spatial, null_x, badtime
 
 Initial data:
-  --init KIND         eq44, two_mode, random_trapped, zindep, s2, offwell, gaussian
-  --radial-profile P  bump8, gaussian, cinf
+  --init KIND                eq44, two_mode, random_trapped, zindep, s2, offwell, gaussian
+  --radial-profile P         bump8, gaussian, cinf
   --amp EPS --ell0 L --n0 N --r-center R --width W
   --two-mode-a A --offwell-r-center R
   --random-mode-centered / --random-single-center
+  --id-balance KIND          none, scale_l, mode_energy
+  --id-normalize KIND        none, quadratic, full_cubic
+  --id-target-energy E
 
 Diagnostics:
-  --lmax L --nmax N --sobolev-s S
-  --trap-dx-half-width X
+  --lmax L --nmax N --sobolev-s S --trap-dx-half-width X
   --high-ell-cut L --high-n-cut N
   --horizon-probe-x X --outer-probe-x X
   --modal-z-basis cosine|cos_sin
+  --energy-balance / --no-energy-balance
 
 Field output:
   --field-mode none|slices|full_csv|full_binary|slices_full_binary
   --field-output none|slices|full_phi|full_state|slices_full_phi|slices_full_state
   --full-output-format binary|csv
   --field-vars phi|phiP
-  --field-every N      output full/slice fields every N diagnostics; 0 disables
-  --no-fields          shortcut for --field-mode none --field-every 0
-  --full-phi           shortcut for --field-mode full_binary --field-vars phi
-  --full-phiP          shortcut for --field-mode full_binary --field-vars phiP
+  --field-every N            output full/slice fields every N diagnostics; 0 disables
+  --no-fields                shortcut for --field-mode none --field-every 0
+  --full-phi                 shortcut for --field-mode full_binary --field-vars phi
+  --full-phiP                shortcut for --field-mode full_binary --field-vars phiP
 
 Other:
   --sponge-inner-width W --sponge-outer-width W
   --sponge-inner-strength S --sponge-outer-strength S
-  --ko-eps E
-  --outdir DIR --quiet --help
+  --ko-eps E --outdir DIR --quiet --help
 )USAGE";
 }
 
 Params parse_args(int argc, char** argv, MPI_Comm comm) {
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
-
     Params p;
+
     for (int i = 1; i < argc; ++i) {
         std::string a(argv[i]);
         if (a == "--help" || a == "-h") {
@@ -318,6 +424,9 @@ Params parse_args(int argc, char** argv, MPI_Comm comm) {
         else if (a == "--random-phase-seed") p.random_phase_seed = get_double(i, argc, argv);
         else if (a == "--random-mode-centered") p.random_mode_centered = true;
         else if (a == "--random-single-center") p.random_mode_centered = false;
+        else if (a == "--id-balance") p.id_balance_name = get_arg(i, argc, argv);
+        else if (a == "--id-normalize") p.id_normalize_name = get_arg(i, argc, argv);
+        else if (a == "--id-target-energy") p.id_target_energy = get_double(i, argc, argv);
         else if (a == "--sponge-inner-width") p.sponge_inner_width = get_double(i, argc, argv);
         else if (a == "--sponge-outer-width") p.sponge_outer_width = get_double(i, argc, argv);
         else if (a == "--sponge-inner-strength") p.sponge_inner_strength = get_double(i, argc, argv);
@@ -333,14 +442,29 @@ Params parse_args(int argc, char** argv, MPI_Comm comm) {
         else if (a == "--outer-probe-x") p.outer_probe_x = get_double(i, argc, argv);
         else if (a == "--modal-z-basis") p.modal_z_basis = get_arg(i, argc, argv);
         else if (a == "--cosine-only") p.modal_z_basis = "cosine";
-        else if (a == "--field-mode" || a == "--fields" || a == "--field-output") apply_field_output_arg(p, get_arg(i, argc, argv));
-        else if (a == "--field-vars") p.field_vars_name = get_arg(i, argc, argv);
-        else if (a == "--full-output-format" || a == "--full-field-format") apply_full_output_format_arg(p, get_arg(i, argc, argv));
-        else if (a == "--no-fields") { p.field_mode_name = "none"; p.field_every = 0; }
-        else if (a == "--full-phi") { p.field_mode_name = "full_binary"; p.field_vars_name = "phi"; if (p.field_every == 0) p.field_every = 1; }
-        else if (a == "--full-phiP") { p.field_mode_name = "full_binary"; p.field_vars_name = "phiP"; if (p.field_every == 0) p.field_every = 1; }
-        else if (a == "--quiet") p.verbose = false;
-        else throw std::runtime_error("unknown option: " + a);
+        else if (a == "--energy-balance") p.energy_balance = true;
+        else if (a == "--no-energy-balance") p.energy_balance = false;
+        else if (a == "--field-mode" || a == "--fields" || a == "--field-output") {
+            apply_field_output_arg(p, get_arg(i, argc, argv));
+        } else if (a == "--field-vars") p.field_vars_name = get_arg(i, argc, argv);
+        else if (a == "--full-output-format" || a == "--full-field-format") {
+            apply_full_output_format_arg(p, get_arg(i, argc, argv));
+        } else if (a == "--no-fields") {
+            p.field_mode_name = "none";
+            p.field_every = 0;
+        } else if (a == "--full-phi") {
+            p.field_mode_name = "full_binary";
+            p.field_vars_name = "phi";
+            if (p.field_every == 0) p.field_every = 1;
+        } else if (a == "--full-phiP") {
+            p.field_mode_name = "full_binary";
+            p.field_vars_name = "phiP";
+            if (p.field_every == 0) p.field_every = 1;
+        } else if (a == "--quiet") {
+            p.verbose = false;
+        } else {
+            throw std::runtime_error("unknown option: " + a);
+        }
     }
 
     finalize_and_validate(p);
@@ -379,6 +503,9 @@ std::string params_to_string(const Params& p) {
     ss << "offwell_r_center = " << p.offwell_r_center << "\n";
     ss << "random_phase_seed = " << p.random_phase_seed << "\n";
     ss << "random_mode_centered = " << (p.random_mode_centered ? 1 : 0) << "\n";
+    ss << "id_balance = " << to_string(p.id_balance) << "\n";
+    ss << "id_normalize = " << to_string(p.id_normalize) << "\n";
+    ss << "id_target_energy = " << p.id_target_energy << "\n";
     ss << "sponge_inner_width = " << p.sponge_inner_width << "\n";
     ss << "sponge_outer_width = " << p.sponge_outer_width << "\n";
     ss << "sponge_inner_strength = " << p.sponge_inner_strength << "\n";
@@ -393,6 +520,7 @@ std::string params_to_string(const Params& p) {
     ss << "horizon_probe_x = " << p.horizon_probe_x << "\n";
     ss << "outer_probe_x = " << p.outer_probe_x << "\n";
     ss << "modal_z_basis = " << p.modal_z_basis << "\n";
+    ss << "energy_balance = " << (p.energy_balance ? 1 : 0) << "\n";
     ss << "field_mode = " << to_string(p.field_mode) << "\n";
     ss << "field_vars = " << to_string(p.field_vars) << "\n";
     return ss.str();
@@ -403,16 +531,25 @@ void print_params(const Params& p, int rank) {
     std::cout << std::setprecision(12)
               << "Parameters:\n"
               << "  outdir=" << p.outdir << "\n"
-              << "  rh=" << p.rh << " Lz=" << p.Lz << " x=[" << p.x_min << "," << p.x_max << "]\n"
+              << "  rh=" << p.rh << " Lz=" << p.Lz
+              << " x=[" << p.x_min << "," << p.x_max << "]\n"
               << "  grid nx,nth,nz=" << p.nx << "," << p.nth << "," << p.nz
-              << " nghost=" << p.nghost << " dt=" << p.dt << " tfinal=" << p.t_final << "\n"
-              << "  model mu=" << p.mu << " lambda=" << p.lambda << " alpha2=" << p.alpha2_phi_box
+              << " nghost=" << p.nghost << " dt=" << p.dt
+              << " tfinal=" << p.t_final << "\n"
+              << "  model mu=" << p.mu << " lambda=" << p.lambda
+              << " alpha2=" << p.alpha2_phi_box
               << " q_kind=" << to_string(p.q_kind) << "\n"
-              << "  init=" << to_string(p.init_kind) << " profile=" << to_string(p.radial_profile)
+              << "  init=" << to_string(p.init_kind)
+              << " profile=" << to_string(p.radial_profile)
               << " amp=" << p.amp << " ell0=" << p.ell0 << " n0=" << p.n0
               << " r_center=" << p.r_center << " width=" << p.width << "\n"
+              << "  id_balance=" << to_string(p.id_balance)
+              << " id_normalize=" << to_string(p.id_normalize)
+              << " target_energy=" << p.id_target_energy << "\n"
               << "  diagnostics lmax,nmax=" << p.lmax << "," << p.nmax
-              << " modal_z_basis=" << p.modal_z_basis << "\n"
-              << "  fields mode=" << to_string(p.field_mode) << " vars=" << to_string(p.field_vars)
+              << " modal_z_basis=" << p.modal_z_basis
+              << " energy_balance=" << (p.energy_balance ? "on" : "off") << "\n"
+              << "  fields mode=" << to_string(p.field_mode)
+              << " vars=" << to_string(p.field_vars)
               << " every=" << p.field_every << " diagnostics\n";
 }
