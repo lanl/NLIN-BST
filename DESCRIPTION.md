@@ -35,10 +35,10 @@ Use this file for a stacked plot of how energy **remaining in the control volume
 
 Instantaneous rates:
 
-- `inner_flux_signed = $$F_H$$`: flux **out of the control volume** through the inner (horizon-side) probe. Positive means energy leaves toward smaller `x`.
-- `outer_flux_signed = $$F_O$$`: flux out through the outer probe. Positive means energy leaves toward larger `x`.
-- `sponge_dissipation_rate = $$D_\sigma$$`: nonnegative energy sink due to `-sigma P` **inside** the probe interval.
-- `bulk_power_rate = $$P_{bulk}`: signed work of derivative/alpha2 terms relative to the cubic reference-energy functional; positive adds energy.
+- `inner_flux_signed = F_H`: flux **out of the control volume** through the inner (horizon-side) probe. Positive means energy leaves toward smaller `x`.
+- `outer_flux_signed = F_O`: flux out through the outer probe. Positive means energy leaves toward larger `x`.
+- `sponge_dissipation_rate = D_\sigma`: nonnegative energy sink due to `-sigma P` **inside** the probe interval.
+- `bulk_power_rate = P_{bulk}`: signed work of derivative/alpha2 terms relative to the cubic reference-energy functional; positive adds energy.
 
 Corresponding `cum_*` columns are the signed time integrals $$\(H=\int F_H dt\)$$, $$\(O=\int F_O dt\)$$, $$\(D=\int D_\sigma dt\)$$, $$\(B=\int P_{bulk}dt\)$$. The cumulative values are integrated at **all RK4 stages** across time steps, **not** just from  sparse CSV output rows.
 
@@ -48,7 +48,7 @@ Signed fluxes may become negative (backflow). For a conservation law do **not** 
 
 `step,time,initial_control_energy,control_energy,cum_inner_flux_signed,cum_outer_flux_signed,cum_sponge_dissipation,cum_bulk_power,accounted_energy_signed,energy_balance_residual,relative_energy_balance_residual,conservation_law_applicable`
 
-Denote the values from the four cumulative columns by `$$H,O,D,B$$`, and `E0 = initial_control_energy`. The primary ledger is
+Denote the values from the four cumulative columns by `H,O,D,B`, and `E0 = initial_control_energy`. The primary ledger is
 
 $$
 \[
