@@ -17,7 +17,7 @@ Use `--no-fields` to suppress large field snapshots while retaining energy diagn
 
 `step,time,control_energy,energy_kinetic,energy_radial,energy_angular,energy_kk,energy_cubic,energy_partition_residual`
 
-For `$$P=Phi_t$$`, `$$f=1-r_h/r$$`, and tortoise radius `x`, all integrals are over the **same control volume** `$$x_H <= x <= x_O$$`, with measure `$$dx d \Omega dz$$`:
+For `P=Phi_t`, `f=1-r_h/r`, and tortoise radius `x`, all integrals are over the **same control volume** `x_H <= x <= x_O`, with measure `$$dx d \Omega dz$$`:
 
 - `energy_kinetic`: $$\(\frac{1}{2} \int r^2P^2\)$$.
 - `energy_radial`: $$\(\frac12\int r^2\Phi_x^2\)$$.
@@ -40,7 +40,7 @@ Instantaneous rates:
 - `sponge_dissipation_rate = $$D_\sigma$$`: nonnegative energy sink due to `-sigma P` **inside** the probe interval.
 - `bulk_power_rate = $$P_{bulk}`: signed work of derivative/alpha2 terms relative to the cubic reference-energy functional; positive adds energy.
 
-Corresponding `cum_*` columns are the signed time integrals \(H=\int F_H dt\), \(O=\int F_O dt\), \(D=\int D_\sigma dt\), \(B=\int P_{bulk}dt\). The cumulative values are integrated at **all RK4 stages** across time steps, **not** just from  sparse CSV output rows.
+Corresponding `cum_*` columns are the signed time integrals $$\(H=\int F_H dt\)$$, $$\(O=\int F_O dt\)$$, $$\(D=\int D_\sigma dt\)$$, $$\(B=\int P_{bulk}dt\)$$. The cumulative values are integrated at **all RK4 stages** across time steps, **not** just from  sparse CSV output rows.
 
 Signed fluxes may become negative (backflow). For a conservation law do **not** clip them to nonnegative numbers. These are fluxes at finite **worldtube probes**, not the mathematical horizon or infinity.
 
@@ -49,22 +49,27 @@ Signed fluxes may become negative (backflow). For a conservation law do **not** 
 `step,time,initial_control_energy,control_energy,cum_inner_flux_signed,cum_outer_flux_signed,cum_sponge_dissipation,cum_bulk_power,accounted_energy_signed,energy_balance_residual,relative_energy_balance_residual,conservation_law_applicable`
 
 Denote the values from the four cumulative columns by `$$H,O,D,B$$`, and `E0 = initial_control_energy`. The primary ledger is
+
 $$
 \[
 A(t)=E_{cv}(t)+H(t)+O(t)+D(t)-B(t),
 \qquad R(t)=A(t)-E_0.
 \]
 $$
+
 `accounted_energy_signed = A`; `energy_balance_residual = R`; `relative_energy_balance_residual = R/|E0|` for nonzero `E0` (zero otherwise).
 
 The `conservation_law_applicable` flag is 1 for the standard linear/pure-cubic model without KO and with no effective derivative/alpha2 source; zero otherwise. It is **not** a quality indicator. For applicable continuum solutions the signed  residual should diminish under refinement, subject to finite-domain boundary and quadrature error.
 
 A useful **fraction plot** can be formed from this file without storing redundant columns:
+
 $$
 \[
 E_{cv}/E_0,\quad H/E_0,\quad O/E_0,\quad D/E_0,\quad -B/E_0.
 \]
-$$                                                                                                                                                                     Their sum is $$\(1+R/E_0\)$$. Use signed values; not all fractions are necessarily positive.
+$$        
+
+Their sum is $$\(1+R/E_0\)$$. Use signed values; not all fractions are necessarily positive.
 
 ### `energy_checks.csv` 
 
