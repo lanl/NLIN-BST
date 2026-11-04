@@ -19,7 +19,7 @@ Use `--no-fields` to suppress large field snapshots while retaining energy diagn
 
 For `P=Phi_t`, `f=1-r_h/r`, and tortoise radius `x`, all integrals are over the **same control volume** `x_H <= x <= x_O`, with measure `dx dOmega dz`:
 
-- `energy_kinetic`: \(\frac12\int r^2P^2\).
+- `energy_kinetic`: $$\(\frac{1}{2} \int r^2P^2\)$$.
 - `energy_radial`: \(\frac12\int r^2\Phi_x^2\).
 - `energy_angular`: \(\frac12\int f\Phi_\theta^2\).
 - `energy_kk`: \(\frac12\int fr^2\Phi_z^2\).
