@@ -31,8 +31,8 @@ struct EnergyRateLocal {
 // Energy bookkeeping for the fixed-background scalar evolution.
 //
 // Existing Diagnostics names, signatures, diagnostics.csv and fluxes.csv are
-// left untouched.  This class writes a separate energy_balance.csv for the
-// radial control volume bounded by horizon_probe_x and outer_probe_x.
+// left untouched.  This class writes four focused CSV files for the radial control volume
+// bounded by horizon_probe_x and outer_probe_x.
 class EnergyBalance {
 public:
     EnergyBalance(const Params& p, const Grid& grid, const Decomp& decomp);
@@ -66,10 +66,17 @@ private:
     EnergyRateLocal cumulative_local_;
     double initial_control_energy_ = 0.0;
     bool have_initial_energy_ = false;
+    bool have_previous_output_ = false;
+    double previous_energy_ = 0.0;
+    double previous_time_ = 0.0;
 
-    std::ofstream file_;
+    std::ofstream components_file_;
+    std::ofstream fluxes_file_;
+    std::ofstream budget_file_;
+    std::ofstream checks_file_;
 
     double sponge_sigma(double x) const;
     double compute_control_energy_local(const State& state) const;
+    void compute_control_components_local(const State& state, double components[5]) const;
     EnergyRateLocal compute_rates_local(const State& state) const;
 };

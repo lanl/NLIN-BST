@@ -61,19 +61,41 @@ EnergyBalance::EnergyBalance(const Params& p,
     }
 
     if (p_.energy_balance && decomp_.rank == 0) {
-        file_.open(p_.outdir + "/energy_balance.csv");
-        file_ << "step,time,control_energy,initial_control_energy,"
-              << "inner_flux_signed,outer_flux_signed,"
-              << "inner_flux_positive,outer_flux_positive,"
-              << "cum_inner_flux_signed,cum_outer_flux_signed,"
-              << "cum_inner_flux_positive,cum_outer_flux_positive,"
-              << "sponge_dissipation_rate,cum_sponge_dissipation,"
-              << "bulk_power_rate,cum_bulk_power,"
-              << "accounted_energy_signed,accounted_energy_one_way,"
-              << "energy_balance_residual,relative_energy_balance_residual,"
-              << "conservation_law_applicable,"
-              << "inner_probe_x_actual,outer_probe_x_actual,"
-              << "inner_probe_r_actual,outer_probe_r_actual\n";
+        components_file_.open(p_.outdir + "/energy_components.csv");
+        components_file_
+            << "step,time,control_energy,energy_kinetic,energy_radial,"
+            << "energy_angular,energy_kk,energy_cubic,energy_partition_residual\n";
+
+        fluxes_file_.open(p_.outdir + "/energy_fluxes.csv");
+        fluxes_file_
+            << "step,time,inner_flux_signed,outer_flux_signed,"
+            << "sponge_dissipation_rate,bulk_power_rate,"
+            << "cum_inner_flux_signed,cum_outer_flux_signed,"
+            << "cum_sponge_dissipation,cum_bulk_power\n";
+
+        budget_file_.open(p_.outdir + "/energy_budget.csv");
+        budget_file_
+            << "step,time,initial_control_energy,control_energy,"
+            << "cum_inner_flux_signed,cum_outer_flux_signed,"
+            << "cum_sponge_dissipation,cum_bulk_power,"
+            << "accounted_energy_signed,energy_balance_residual,"
+            << "relative_energy_balance_residual,conservation_law_applicable\n";
+
+        checks_file_.open(p_.outdir + "/energy_checks.csv");
+        checks_file_
+            << "step,time,residual_without_horizon,residual_without_outer,"
+            << "residual_without_sponge,residual_without_bulk,"
+            << "horizon_energy_only_estimate,horizon_inferred_from_balance,"
+            << "horizon_inference_difference,instantaneous_balance_rhs,"
+            << "control_energy_rate_finite_difference,rate_balance_residual\n";
+
+        // Probe locations are constant in time; record once, not in every CSV row.
+        std::ofstream probe_info(p_.outdir + "/energy_probe_locations.txt");
+        probe_info << std::setprecision(17)
+                   << "inner_probe_x_actual=" << grid_.x[inner_probe_i_] << "\n"
+                   << "outer_probe_x_actual=" << grid_.x[outer_probe_i_] << "\n"
+                   << "inner_probe_r_actual=" << grid_.r[inner_probe_i_] << "\n"
+                   << "outer_probe_r_actual=" << grid_.r[outer_probe_i_] << "\n";
 
         if (p_.verbose) {
             std::cout << std::setprecision(12)
@@ -123,47 +145,46 @@ double EnergyBalance::sponge_sigma(double x) const {
     return sponge_sigma_value(p_, x);
 }
 
-double EnergyBalance::compute_control_energy_local(const State& state) const {
-    double local_energy = 0.0;
-
+// Quadratic kinetic/radial/angular/KK energies plus the cubic potential.
+// All use the same radial control volume and weights as the pre-existing code.
+void EnergyBalance::compute_control_components_local(const State& state,
+                                                     double components[5]) const {
+    for (int c = 0; c < 5; ++c) components[c] = 0.0;
     for (int il = 0; il < decomp_.local_nx; ++il) {
         const int gi = decomp_.i_start + il;
         if (gi < inner_probe_i_ || gi > outer_probe_i_) continue;
-
         const int ii = il + state.Q.ng;
         const double r = grid_.r[gi];
         const double f = grid_.f[gi];
         double wx = grid_.dx;
         if (gi == inner_probe_i_ || gi == outer_probe_i_) wx *= 0.5;
-
         for (int j = 0; j < p_.nth; ++j) {
-            double wtheta =
-                2.0 * PI_CONST * std::sin(grid_.theta[j]) * grid_.dtheta;
+            double wtheta = 2.0 * PI_CONST * std::sin(grid_.theta[j]) * grid_.dtheta;
             if (j == 0 || j == p_.nth - 1) wtheta *= 0.5;
-
             for (int k = 0; k < p_.nz; ++k) {
                 const double phi = state.Q(ii, j, k);
                 const double P = state.P(ii, j, k);
-                const double phix =
-                    dx1_4(state.Q, ii, j, k, grid_.inv_dx);
-                const double phith =
-                    dtheta1_mixed(state.Q, ii, j, k, grid_.inv_dtheta);
-                const double phiz =
-                    dz1_4(state.Q, ii, j, k, grid_.inv_dz);
-
+                const double phix = dx1_4(state.Q, ii, j, k, grid_.inv_dx);
+                const double phith = dtheta1_mixed(state.Q, ii, j, k, grid_.inv_dtheta);
+                const double phiz = dz1_4(state.Q, ii, j, k, grid_.inv_dz);
+                const double v = wx * wtheta * grid_.dz;
+                components[0] += v * 0.5 * r * r * P * P;
+                components[1] += v * 0.5 * r * r * phix * phix;
+                components[2] += v * 0.5 * f * phith * phith;
+                components[3] += v * 0.5 * f * r * r * phiz * phiz;
                 const double phi2 = phi * phi;
-                const double density =
-                    0.5 * r * r * (P * P + phix * phix)
-                    + 0.5 * f * phith * phith
-                    + 0.5 * f * r * r * phiz * phiz
-                    + 0.25 * p_.mu * f * r * r * phi2 * phi2;
-
-                local_energy += wx * wtheta * grid_.dz * density;
+                components[4] += v * 0.25 * p_.mu * f * r * r * phi2 * phi2;
             }
         }
     }
+}
 
-    return local_energy;
+double EnergyBalance::compute_control_energy_local(const State& state) const {
+    double components[5];
+    compute_control_components_local(state, components);
+    double total = 0.0;
+    for (int c = 0; c < 5; ++c) total += components[c];
+    return total;
 }
 
 EnergyRateLocal EnergyBalance::compute_rates_local(const State& state) const {
@@ -236,12 +257,15 @@ EnergyRateLocal EnergyBalance::compute_rates_local(const State& state) const {
 void EnergyBalance::write(int step, double time, const State& state) {
     if (!p_.energy_balance) return;
 
-    const double local_energy = compute_control_energy_local(state);
+    double local_components[5];
+    compute_control_components_local(state, local_components);
+    double global_components[5] = {};
+    MPI_Allreduce(local_components, global_components, 5, MPI_DOUBLE,
+                  MPI_SUM, decomp_.comm);
+    double control_energy = 0.0;
+    for (double v : global_components) control_energy += v;
     const EnergyRateLocal instantaneous_local = compute_rates_local(state);
 
-    double control_energy = 0.0;
-    MPI_Allreduce(&local_energy, &control_energy, 1, MPI_DOUBLE,
-                  MPI_SUM, decomp_.comm);
 
     const double instantaneous_array[6] = {
         instantaneous_local.inner_flux_out,
@@ -283,12 +307,6 @@ void EnergyBalance::write(int step, double time, const State& state) {
 
     // One-way version used only as an intuitive partition when backflow is
     // negligible.  The signed ledger above is the authoritative identity.
-    const double accounted_energy_one_way =
-        control_energy
-        + cumulative_global[2]
-        + cumulative_global[3]
-        + cumulative_global[4]
-        - cumulative_global[5];
 
     const double residual =
         accounted_energy_signed - initial_control_energy_;
@@ -302,32 +320,72 @@ void EnergyBalance::write(int step, double time, const State& state) {
          p_.alpha2_phi_box == 0.0 &&
          p_.ko_eps == 0.0) ? 1 : 0;
 
+    const double H = cumulative_global[0];
+    const double O = cumulative_global[1];
+    const double D = cumulative_global[4];
+    const double B = cumulative_global[5];
+    const double energy_departed = initial_control_energy_ - control_energy;
+    const double accounted_no_horizon = accounted_energy_signed - H;
+    const double accounted_no_outer = accounted_energy_signed - O;
+    const double accounted_no_sponge = accounted_energy_signed - D;
+    const double accounted_no_bulk = accounted_energy_signed + B;
+    const double horizon_energy_only = energy_departed;
+    const double horizon_inferred = energy_departed - O - D + B;
+    const double horizon_inference_diff = H - horizon_inferred;
+    const double instantaneous_rhs = -instantaneous_global[0]
+        - instantaneous_global[1] - instantaneous_global[4]
+        + instantaneous_global[5];
+    // The finite-difference derivative is only diagnostic; it does not
+    // participate in the RK4-stage cumulative ledger.
+    double finite_difference_dEdt = 0.0;
+    if (have_previous_output_ && time > previous_time_)
+        finite_difference_dEdt = (control_energy - previous_energy_)
+                                  / (time - previous_time_);
+    const double rate_balance_residual = have_previous_output_
+        ? finite_difference_dEdt - instantaneous_rhs : 0.0;
+    previous_energy_ = control_energy;
+    previous_time_ = time;
+    have_previous_output_ = true;
     if (decomp_.rank == 0) {
-        file_ << std::setprecision(17)
-              << step << "," << time << ","
-              << control_energy << ","
-              << initial_control_energy_ << ","
-              << instantaneous_global[0] << ","
-              << instantaneous_global[1] << ","
-              << instantaneous_global[2] << ","
-              << instantaneous_global[3] << ","
-              << cumulative_global[0] << ","
-              << cumulative_global[1] << ","
-              << cumulative_global[2] << ","
-              << cumulative_global[3] << ","
-              << instantaneous_global[4] << ","
-              << cumulative_global[4] << ","
-              << instantaneous_global[5] << ","
-              << cumulative_global[5] << ","
-              << accounted_energy_signed << ","
-              << accounted_energy_one_way << ","
-              << residual << ","
-              << relative_residual << ","
-              << conservation_law_applicable << ","
-              << grid_.x[inner_probe_i_] << ","
-              << grid_.x[outer_probe_i_] << ","
-              << grid_.r[inner_probe_i_] << ","
-              << grid_.r[outer_probe_i_] << "\n";
-        file_.flush();
+        const double energy_partition_residual =
+            control_energy - (global_components[0] + global_components[1]
+                              + global_components[2] + global_components[3]
+                              + global_components[4]);
+
+        components_file_ << std::setprecision(17)
+            << step << "," << time << "," << control_energy << ","
+            << global_components[0] << "," << global_components[1] << ","
+            << global_components[2] << "," << global_components[3] << ","
+            << global_components[4] << "," << energy_partition_residual << "\n";
+
+        fluxes_file_ << std::setprecision(17)
+            << step << "," << time << ","
+            << instantaneous_global[0] << "," << instantaneous_global[1] << ","
+            << instantaneous_global[4] << "," << instantaneous_global[5] << ","
+            << cumulative_global[0] << "," << cumulative_global[1] << ","
+            << cumulative_global[4] << "," << cumulative_global[5] << "\n";
+
+        budget_file_ << std::setprecision(17)
+            << step << "," << time << ","
+            << initial_control_energy_ << "," << control_energy << ","
+            << H << "," << O << "," << D << "," << B << ","
+            << accounted_energy_signed << "," << residual << ","
+            << relative_residual << "," << conservation_law_applicable << "\n";
+
+        checks_file_ << std::setprecision(17)
+            << step << "," << time << ","
+            << (accounted_no_horizon - initial_control_energy_) << ","
+            << (accounted_no_outer - initial_control_energy_) << ","
+            << (accounted_no_sponge - initial_control_energy_) << ","
+            << (accounted_no_bulk - initial_control_energy_) << ","
+            << horizon_energy_only << "," << horizon_inferred << ","
+            << horizon_inference_diff << ","
+            << instantaneous_rhs << "," << finite_difference_dEdt << ","
+            << rate_balance_residual << "\n";
+
+        components_file_.flush();
+        fluxes_file_.flush();
+        budget_file_.flush();
+        checks_file_.flush();
     }
 }
