@@ -227,20 +227,20 @@ public:
 
     void apply(const Params& p, const Grid& grid, const Decomp& d, State& s) const override {
         const double balance1 = mode_balance_factor(
-            p, grid, 2, 1, p.r_center, p.radial_profile);
+            p, grid, p.two_mode_ell1, p.two_mode_n1, p.r_center, p.radial_profile);
         const double balance2 = mode_balance_factor(
-            p, grid, 4, 2, p.r_center, p.radial_profile);
+            p, grid, p.two_mode_ell2, p.two_mode_n2, p.r_center, p.radial_profile);
         const double amplitude = initial_shape_amplitude(p);
 
         report_seed_modes(p, grid, d,
-                          {{2, 1, 1.0, p.r_center, p.radial_profile},
-                           {4, 2, p.two_mode_a, p.r_center, p.radial_profile}});
+                          {{p.two_mode_ell1, p.two_mode_n1, 1.0, p.r_center, p.radial_profile},
+                           {p.two_mode_ell2, p.two_mode_n2, p.two_mode_a, p.r_center, p.radial_profile}});
 
         fill_time_symmetric(p, grid, d, s, [&](double r, double th, double z) {
             const double B = radial_profile_value(p, r, p.r_center);
-            const double term1 = balance1 * Y_l0(2, th) * mode_cos(p, 1, z);
+            const double term1 = balance1 * Y_l0(p.two_mode_ell1, th) * mode_cos(p, p.two_mode_n1, z);
             const double term2 = p.two_mode_a * balance2
-                               * Y_l0(4, th) * mode_cos(p, 2, z);
+                               * Y_l0(p.two_mode_ell2, th) * mode_cos(p, p.two_mode_n2, z);
             return amplitude * B * (term1 + term2);
         });
         finish_initial_data(p, grid, d, s);

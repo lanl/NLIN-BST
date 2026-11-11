@@ -97,6 +97,10 @@ struct Params {
     int n0 = 1;
     double r_center = 9.45;
     double width = 1.0;
+    int two_mode_ell1 = 2;
+    int two_mode_n1 = 1;
+    int two_mode_ell2 = 4;
+    int two_mode_n2 = 2;
     double two_mode_a = 0.5;
     double offwell_r_center = 5.0;
     double random_phase_seed = 1.2345;

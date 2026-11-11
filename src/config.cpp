@@ -188,6 +188,10 @@ void finalize_and_validate(Params& p) {
     if (p.ell0 < 0 || p.n0 < 0) {
         throw std::runtime_error("ell0 and n0 must be nonnegative");
     }
+    if (p.two_mode_ell1 < 0 || p.two_mode_n1 < 0 ||
+        p.two_mode_ell2 < 0 || p.two_mode_n2 < 0) {
+        throw std::runtime_error("two-mode ell and n indices must be nonnegative");
+    }
     if (p.lmax < 0 || p.nmax < 0) {
         throw std::runtime_error("lmax and nmax must be nonnegative");
     }
@@ -202,6 +206,11 @@ void finalize_and_validate(Params& p) {
     if (p.n0 >= p.nz / 2) {
         throw std::runtime_error(
             "n0 must be below the z-grid Nyquist frequency; require n0 < nz/2");
+    }
+    if (p.two_mode_n1 >= p.nz / 2 || p.two_mode_n2 >= p.nz / 2) {
+        throw std::runtime_error(
+            "two-mode n indices must be below the z-grid Nyquist frequency; "
+            "require n < nz/2");
     }
     if (!finite(p.sponge_inner_width) || !finite(p.sponge_outer_width) ||
         !finite(p.sponge_inner_strength) || !finite(p.sponge_outer_strength)) {
@@ -355,6 +364,8 @@ Initial data:
   --init KIND                eq44, two_mode, random_trapped, zindep, s2, offwell, gaussian
   --radial-profile P         bump8, gaussian, cinf
   --amp EPS --ell0 L --n0 N --r-center R --width W
+  --two-mode-ell1 L --two-mode-n1 N
+  --two-mode-ell2 L --two-mode-n2 N
   --two-mode-a A --offwell-r-center R
   --random-mode-centered / --random-single-center
   --id-balance KIND          none, scale_l, mode_energy
@@ -420,6 +431,10 @@ Params parse_args(int argc, char** argv, MPI_Comm comm) {
         else if (a == "--r-center") p.r_center = get_double(i, argc, argv);
         else if (a == "--width") p.width = get_double(i, argc, argv);
         else if (a == "--two-mode-a") p.two_mode_a = get_double(i, argc, argv);
+	else if (a == "--two-mode-ell1") p.two_mode_ell1 = get_int(i, argc, argv);
+	else if (a == "--two-mode-n1") p.two_mode_n1 = get_int(i, argc, argv);
+	else if (a == "--two-mode-ell2") p.two_mode_ell2 = get_int(i, argc, argv);
+        else if (a == "--two-mode-n2") p.two_mode_n2 = get_int(i, argc, argv);
         else if (a == "--offwell-r-center") p.offwell_r_center = get_double(i, argc, argv);
         else if (a == "--random-phase-seed") p.random_phase_seed = get_double(i, argc, argv);
         else if (a == "--random-mode-centered") p.random_mode_centered = true;
@@ -499,6 +514,10 @@ std::string params_to_string(const Params& p) {
     ss << "n0 = " << p.n0 << "\n";
     ss << "r_center = " << p.r_center << "\n";
     ss << "width = " << p.width << "\n";
+    ss << "two_mode_ell1 = " << p.two_mode_ell1 << "\n";
+    ss << "two_mode_n1 = " << p.two_mode_n1 << "\n";
+    ss << "two_mode_ell2 = " << p.two_mode_ell2 << "\n";
+    ss << "two_mode_n2 = " << p.two_mode_n2 << "\n";
     ss << "two_mode_a = " << p.two_mode_a << "\n";
     ss << "offwell_r_center = " << p.offwell_r_center << "\n";
     ss << "random_phase_seed = " << p.random_phase_seed << "\n";
